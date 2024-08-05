@@ -30,4 +30,4 @@ This URL shortener service is built using Spring Boot. It offers the ability to 
 ## How It Works
 - Shortening: A long URL is hashed using SHA-1, then Base64 encoded, and truncated to a fixed length of 7 characters. A Bloom Filter is used to check for collisions, and a random suffix is appended if necessary.
 - Redirection: Short URLs are resolved to their long counterparts and redirected.
-Deletion: Short URLs can be removed from the system, freeing up space.
+- Deletion: Short URLs can be removed from the system, freeing up space.
