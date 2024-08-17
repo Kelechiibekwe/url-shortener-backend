@@ -2,8 +2,12 @@ package com.kelechitriescoding.urlShortener.service;
 
 import com.google.common.hash.BloomFilter;
 import com.google.common.hash.Funnels;
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -12,9 +16,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class UrlShortenerService {
 
     @Value("${url-shortener.base-url}")
@@ -25,23 +31,22 @@ public class UrlShortenerService {
     private static final ConcurrentHashMap<String, String> urlDatabase = new ConcurrentHashMap<>();
     private static final String HASH_ALGORITHM = "SHA-1";
 
+    private final RedisTemplate<String, String> redisTemplate;
+
     public String getLongUrl(String shortUrl) {
-        return urlDatabase.get(shortUrl);
+        return redisTemplate.opsForValue().get(shortUrl);
     }
 
     public String deleteShortUrl(String shortUrl){
-        if(urlDatabase.containsKey(shortUrl)){
-            urlDatabase.remove(shortUrl);
-            return "Url: " + shortUrl + " was found and removed";
-        }
-        return "Url: " + shortUrl + " does not exist in the db";
+        Boolean removed = redisTemplate.delete(shortUrl);
+        return removed != null && removed ? "Url: " + shortUrl + " was found and removed" : "Url: " + shortUrl + " does not exist in the db";
     }
 
     public String generateUniqueShortUrl(String longUrl) {
         String shortUrl = createShortUrl(longUrl);
 
         if (urlDatabase.containsValue(longUrl)){
-            return baseUrl + getKeyForValue(urlDatabase,longUrl);
+            return baseUrl + shortUrl;
         }
 
         while (isCollision(shortUrl)) {
@@ -74,25 +79,15 @@ public class UrlShortenerService {
     }
 
     private boolean isCollision(String shortUrl) {
-        return bloomFilter.mightContain(shortUrl) && urlDatabase.containsKey(shortUrl);
+        return bloomFilter.mightContain(shortUrl) && redisTemplate.opsForValue().get(shortUrl) != null;
     }
 
     private void saveShortUrl(String shortUrl, String longUrl) {
         bloomFilter.put(shortUrl);
-        urlDatabase.put(shortUrl, longUrl);
+        redisTemplate.opsForValue().set(shortUrl, longUrl, 1, TimeUnit.DAYS); // TTL can be adjusted as per requirements
     }
 
     private String generateRandomSuffix() {
         return Long.toHexString(Double.doubleToLongBits(Math.random()));
     }
-
-    public <K, V> K getKeyForValue(ConcurrentHashMap<K, V> map, V value) {
-        for (Map.Entry<K, V> entry : map.entrySet()) {
-            if (entry.getValue().equals(value)) {
-                return entry.getKey();
-            }
-        }
-        return null; // Return null if value is not found
-    }
-
 }

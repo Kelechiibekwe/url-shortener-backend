@@ -3,5 +3,8 @@ server:
 spring:
   application:
     name: urlShortener
+  redis:
+    host: localhost
+    port: 6379
 url-shortener:
   base-url: http://localhost:8080/
