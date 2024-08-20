@@ -45,7 +45,7 @@ public class UrlShortenerService {
     public String generateUniqueShortUrl(String longUrl) {
         String shortUrl = createShortUrl(longUrl);
 
-        if (urlDatabase.containsValue(longUrl)){
+        if (redisTemplate.opsForValue().get(shortUrl) != null){
             return baseUrl + shortUrl;
         }
 
